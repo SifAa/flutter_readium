@@ -8,32 +8,43 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import org.readium.navigator.media.common.MediaMetadataFactory
+import org.readium.r2.shared.InternalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Publication
+import org.readium.r2.shared.util.data.readOrElse
 
 
 class DatabaseMediaMetadataFactory(
     private val context: Context,
     private val publication: Publication,
+    scope: CoroutineScope,
     private val trackCount: Int,
     private val controlPanelInfoType: ControlPanelInfoType
 ) : MediaMetadataFactory {
     private class Metadata(
         val title: String,
         val authors: String,
-        val cover: Link?
+        val cover: ByteArray?
     )
 
+    private val metadata: Deferred<Metadata?> = scope.async {
+        Metadata(
+            title = publication.metadata.title ?: "",
+            authors = publication.metadata.authors.joinToString(", ") { it.name }.ifEmpty { "" },
+            cover = loadCover(publication.resources.firstOrNull() { l -> l.rels.contains("cover") })
+        )
+    }
 
-    private val metadata: Metadata = Metadata(
-        title = publication.metadata.title ?: "",
-        authors = publication.metadata.authors.joinToString(", ") { it.name }.ifEmpty { "" },
-        cover = publication.links.firstOrNull() { l -> l.rels.contains("cover") }
-    )
+    // Readium writes that byte arrays will go cross processes and should be kept small and uses internal functions .scaleToFit(400, 400).toPng()
+    @OptIn(InternalReadiumApi::class)
+    suspend fun loadCover(link: Link?): ByteArray? {
+        if (link == null) {
+            return null
+        }
+        val res = publication.get(link)
 
-    // Remember byte arrays will go cross processes and should be kept small so use .scaleToFit(400, 400).toPng()
-    // TODO: Load cover image asynchronously and cache it
-    private var coverImage: ByteArray? = null
+        return res?.read()?.getOrNull()
+    }
 
     override suspend fun publicationMetadata(): MediaMetadata =
         builder()?.build() ?: MediaMetadata.EMPTY
@@ -42,6 +53,7 @@ class DatabaseMediaMetadataFactory(
         builder(index)?.build() ?: MediaMetadata.EMPTY
 
     private suspend fun builder(index: Int? = null): MediaMetadata.Builder? {
+        val metadata = metadata.await() ?: return null
         val publicationTitle = metadata.title
         val authors = metadata.authors
         val currentChapterTitle = index?.let {
@@ -77,11 +89,11 @@ class DatabaseMediaMetadataFactory(
         }
 
         index?.let { builder.setTrackNumber(it) }
-        coverImage?.let {
-            // We can't yet directly use a `content://` or `file://` URI with `setArtworkUri`.
-            // See https://github.com/androidx/media/issues/271
-            builder.setArtworkData(it, PICTURE_TYPE_FRONT_COVER)
-        }
+
+        // We can't yet directly use a `content://` or `file://` URI with `setArtworkUri`.
+        // See https://github.com/androidx/media/issues/271
+        builder.setArtworkData(metadata.cover, PICTURE_TYPE_FRONT_COVER)
+
         return builder
     }
 }

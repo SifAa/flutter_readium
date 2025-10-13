@@ -8,7 +8,10 @@ import dk.nota.flutter_readium.PluginMediaServiceFacade
 import dk.nota.flutter_readium.PublicationError
 import dk.nota.flutter_readium.ReadiumReader
 import dk.nota.flutter_readium.throttleLatest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -52,6 +55,8 @@ class AudiobookNavigator(
     // in-memory cached state
     private val state = mutableMapOf<String, Any?>()
 
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override suspend fun initNavigator() {
         // Create AudioNavigatorFactory
         val navigatorFactory = ExoPlayerNavigatorFactory(
@@ -61,9 +66,12 @@ class AudiobookNavigator(
                     context = ReadiumReader.application,
                     publication = publication,
                     trackCount = pub.readingOrder.size,
+                    scope = ioScope,
                     controlPanelInfoType = preferences.controlPanelInfoType ?: ControlPanelInfoType.STANDARD
                 )})
         )
+
+
 
         if (navigatorFactory == null) {
             // TODO: Better Error handling, if the book isn't an audiobook the factory is null.

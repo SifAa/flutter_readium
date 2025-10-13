@@ -10,7 +10,10 @@ import dk.nota.flutter_readium.PublicationError
 import dk.nota.flutter_readium.ReadiumReader
 import dk.nota.flutter_readium.letIfBothNotNull
 import dk.nota.flutter_readium.throttleLatest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -70,6 +73,8 @@ class TTSNavigator(
     // in-memory cached state
     private val state = mutableMapOf<String, Any?>()
 
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override suspend fun initNavigator() {
         val navigatorFactory = TtsNavigatorFactory(
             ReadiumReader.application,
@@ -82,6 +87,7 @@ class TTSNavigator(
                     context = ReadiumReader.application,
                     publication = publication,
                     trackCount = pub.readingOrder.size,
+                    scope = ioScope,
                     controlPanelInfoType = preferences.controlPanelInfoType
                         ?: ControlPanelInfoType.STANDARD
                 )
