@@ -312,7 +312,6 @@ extension FlutterReadiumPlugin : AudioNavigatorDelegate {
     
     nowPlaying.media?.chapterNumber = info.resourceIndex
     
-    // TODO: Show current chapter title?
     let publication = audiobookVM?.navigator.publication
     if(infoType == .standard || infoType == .standardWCh){
       standardNowPlayingInfo(info: info, infoType: infoType, publication: publication)
