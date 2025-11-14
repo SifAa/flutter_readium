@@ -71,10 +71,10 @@ class FlutterReadiumWebPlugin extends FlutterReadiumPlatform {
       );
     } on Error catch (e) {
       final eString = e.toString();
-      throw ReadiumError('Error in PublicationChannel web: $eString');
+      throw ReadiumError('Error in PublicationChannel web $pubUrl: $eString');
     } on Exception catch (e) {
       final eString = e.toString();
-      throw ReadiumError('Exception in PublicationChannel web: $eString');
+      throw ReadiumError('Exception in PublicationChannel web $pubUrl: $eString');
     }
 
     return publication;
@@ -83,67 +83,27 @@ class FlutterReadiumWebPlugin extends FlutterReadiumPlatform {
   static Map<String, dynamic> _transformPublicationJson(
     final Map<String, dynamic> publicationJson,
   ) {
-    // Transform 'links', 'readingOrder', 'resources', and 'tableOfContents' keys
-    _transformKeyItems(publicationJson, 'links');
-    _transformKeyItems(publicationJson, 'readingOrder');
-    _transformKeyItems(publicationJson, 'resources');
-
-    // rename key 'tableOfContents' to 'toc'
-    if (publicationJson.containsKey('tableOfContents')) {
-      publicationJson['toc'] = publicationJson.remove('tableOfContents');
-    }
-
-    // Transform 'children' key in 'toc'
-    if (publicationJson.containsKey('toc') && publicationJson['toc'] is Map<String, dynamic>) {
-      _transformKeyItems(publicationJson, 'toc');
-      publicationJson['toc'] = _transformChildren(publicationJson['toc']);
-    }
-
-    // Transform 'translations' key in 'metadata'
+    // TODO: create issue in ts-toolkit and remove this workaround when fixed
     if (publicationJson.containsKey('metadata') && publicationJson['metadata'] is Map) {
       final metadataMap = publicationJson['metadata'] as Map<String, dynamic>;
 
-      if (metadataMap.containsKey('authors') && metadataMap['authors'] is Map) {
-        // rename key 'authors' to 'author'
-        metadataMap['author'] = metadataMap.remove('authors');
-        // remove 'items' wrapper if exists
-        _transformKeyItems(metadataMap, 'author');
-
-        for (final author in metadataMap['author']) {
-          if (author is Map && author.containsKey('name') && author['name'] is Map) {
-            final nameMap = author['name'] as Map<String, dynamic>;
-            if (nameMap.containsKey('translations') && nameMap['translations'] is Map) {
-              final translationsMap = nameMap['translations'] as Map<String, dynamic>;
-              _validateTranslations(translationsMap);
-              author['name'] = translationsMap;
-            }
-          }
-        }
-      }
-
-      if (metadataMap.containsKey('title') && metadataMap['title'] is Map) {
-        final titleMap = metadataMap['title'] as Map<String, dynamic>;
-        if (titleMap.containsKey('translations') && titleMap['translations'] is Map) {
-          final translationsMap = titleMap['translations'] as Map<String, dynamic>;
-
-          _validateTranslations(translationsMap);
-
-          metadataMap['title'] = translationsMap;
-        }
-      }
+      _replaceUndefinedKey(metadataMap);
 
       if (metadataMap.containsKey('sortAs')) {
         final sortAs = metadataMap['sortAs'];
-        if (sortAs is Map && sortAs['translations'] is Map) {
-          final translations = sortAs['translations'] as Map;
-          if (translations.isNotEmpty) {
+        if (sortAs is Map) {
+          if (sortAs.isNotEmpty) {
             // Use the first value in the translations map
-            metadataMap['sortAs'] = translations.values.first;
+            metadataMap['sortAs'] = sortAs.values.first;
+            R2Log.d('Pub: ${metadataMap['title']} sortAs map transformed to first value.');
           } else {
             metadataMap['sortAs'] = null;
+            R2Log.d('Pub: ${metadataMap['title']} sortAs map is empty, setting to null.');
           }
         } else if (sortAs is! String) {
           metadataMap['sortAs'] = null;
+          R2Log.d(
+              'Pub: ${metadataMap['title']} sortAs is not a String or Map, setting to null. Actual type: ${sortAs.runtimeType}');
         }
       }
     }
@@ -151,39 +111,25 @@ class FlutterReadiumWebPlugin extends FlutterReadiumPlatform {
     return publicationJson;
   }
 
-  static void _transformKeyItems(final Map<String, dynamic> json, final String key) {
-    if (json.containsKey(key) && json[key] is Map) {
-      final map = json[key] as Map<String, dynamic>;
-      if (map.containsKey('items') && map['items'] is List) {
-        json[key] = map['items'];
+  static void _replaceUndefinedKey(Map<dynamic, dynamic> map) {
+    final keysToReplace = <dynamic>[];
+    map.forEach((key, value) {
+      if (key == 'undefined') {
+        keysToReplace.add(key);
       }
-    }
-  }
-
-  static List<dynamic> _transformChildren(final List<dynamic> items) => items.map((final item) {
-        if (item is Map<String, dynamic> && item.containsKey('children')) {
-          final children = item['children'];
-          if (children is Map<String, dynamic> && children.containsKey('items')) {
-            item['children'] = children['items'];
-          }
-          if (item['children'] is List) {
-            item['children'] = _transformChildren(item['children']);
+      if (value is Map) {
+        _replaceUndefinedKey(value);
+      } else if (value is List) {
+        for (var item in value) {
+          if (item is Map) {
+            _replaceUndefinedKey(item);
           }
         }
-        return item;
-      }).toList();
-
-  static void _validateTranslations(Map<String, dynamic> translationsMap) {
-    if (translationsMap.containsKey('undefined')) {
-      translationsMap['und'] = translationsMap.remove('undefined');
-    }
-
-    // TODO: unknown if other languages also fails the validation, needs better handling
-    translationsMap.forEach((final key, final value) {
-      if (key.length > 3) {
-        R2Log.d('PUBLICATION WEB: Translations map key "$key" is longer than three letters.');
       }
     });
+    for (var key in keysToReplace) {
+      map['und'] = map.remove(key);
+    }
   }
 
   @override

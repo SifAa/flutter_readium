@@ -1,7 +1,7 @@
 import "./style.css";
 
 import { EpubNavigator, WebPubNavigator } from "@readium/navigator";
-import { Locator, Profile, Publication, Resource } from "@readium/shared";
+import { Locator, Resource } from "@readium/shared";
 import { Link } from "@readium/shared";
 
 // Helpers and extensions
@@ -36,7 +36,9 @@ class _ReadiumReader {
       let pubId = this._publication.metadata.identifier ?? "unidentified";
       _ReadiumReader._publications.set(pubId, this._publication);
 
-      return JSON.stringify(this._publication);
+      let manifestJson = this._publication.manifest.serialize();
+
+      return JSON.stringify(manifestJson);
     } catch (error) {
       throw new Error("Error getting publication: " + error);
     }
@@ -104,7 +106,6 @@ class _ReadiumReader {
         this._publication = new ReadiumPublication({ manifest, fetcher });
         _ReadiumReader._publications.set(pubId, this._publication);
       }
-      let conformsToArray = this._publication.manifest.metadata.conformsTo;
 
       if (this._publication.conformsToAudiobook) {
         // Initialize WebAudioEngine for audiobooks
