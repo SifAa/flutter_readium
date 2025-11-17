@@ -45,7 +45,6 @@ class ReadiumWebViewState extends State<ReadiumWebView> {
 
   @js_interop.JSExport()
   void onReaderStatusChanged(final String statusString) {
-    print('Reader status changed: $statusString');
     final status = ReadiumReaderStatus.values.firstWhereOrNull(
       (e) => e.name == statusString,
     );
