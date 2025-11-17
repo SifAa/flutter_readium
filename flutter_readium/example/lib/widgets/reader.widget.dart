@@ -63,9 +63,18 @@ class ReaderWidget extends StatelessWidget {
               container: true,
               explicitChildNodes: true,
               child: ExcludeSemantics(
-                child: ReadiumReaderWidget(
-                  publication: state.publication!,
-                  initialLocator: state.initialLocator,
+                child: BlocBuilder<TextSettingsBloc, TextSettingsState>(
+                  builder: (context, settings) {
+                    return Container(
+                      // Ensure this color is the same as the pub background to avoid flashes of different colors
+                      // predominantly happens on web when chapter changes
+                      color: settings.theme.backgroundColor,
+                      child: ReadiumReaderWidget(
+                        publication: state.publication!,
+                        initialLocator: state.initialLocator,
+                      ),
+                    );
+                  },
                 ),
               ),
             );
