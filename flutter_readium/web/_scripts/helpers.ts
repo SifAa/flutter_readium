@@ -19,7 +19,7 @@ import {
 } from "@readium/shared";
 import { ReadiumPublication } from "./extensions/ReadiumPublication";
 
-export async function fetchManifest(publicationURL: string) {
+async function fetchManifest(publicationURL: string) {
   const manifestLink = new Link({ href: "manifest.json" });
   const fetcher: Fetcher = new HttpFetcher(undefined, publicationURL);
   const resource = fetcher.get(manifestLink);
@@ -31,6 +31,13 @@ export async function fetchManifest(publicationURL: string) {
     return manifest;
   });
   return { manifest, fetcher, selfLink };
+}
+
+export async function createPublicationJson(publicationURL: string) {
+  const { manifest, fetcher } = await fetchManifest(publicationURL);
+  const publication = new ReadiumPublication({ manifest, fetcher });
+  const manifestJson = publication.manifest.serialize();
+  return { publication, manifestJson };
 }
 
 export function mediaTypes(publication: ReadiumPublication) {
