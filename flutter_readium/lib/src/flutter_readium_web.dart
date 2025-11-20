@@ -52,17 +52,24 @@ class FlutterReadiumWebPlugin extends FlutterReadiumPlatform {
   }
 
   @override
+  Future<Publication> openPublication(String pubUrl) async {
+    return await _getPublicationFromChannel(JsPublicationChannel().openPublication, pubUrl);
+  }
+
+  @override
   Future<Publication> loadPublication(String pubUrl) async {
-    Publication publication;
+    return await _getPublicationFromChannel(JsPublicationChannel().loadPublication, pubUrl);
+  }
 
+  Future<Publication> _getPublicationFromChannel(
+    Future<String> Function(String) channelMethod,
+    String pubUrl,
+  ) async {
     try {
-      final publicationString = await JsPublicationChannel().getPublication(pubUrl);
-
+      final publicationString = await channelMethod(pubUrl);
       var publicationJson = jsonDecode(publicationString) as Map<String, dynamic>;
-
       publicationJson = _transformPublicationJson(publicationJson);
-
-      publication = Publication.fromJson(publicationJson);
+      return Publication.fromJson(publicationJson);
     } on PlatformException catch (e) {
       final type = e.intCode;
       throw OpeningReadiumException(
@@ -76,8 +83,6 @@ class FlutterReadiumWebPlugin extends FlutterReadiumPlatform {
       final eString = e.toString();
       throw ReadiumError('Exception in PublicationChannel web $pubUrl: $eString');
     }
-
-    return publication;
   }
 
   static Map<String, dynamic> _transformPublicationJson(
@@ -133,41 +138,16 @@ class FlutterReadiumWebPlugin extends FlutterReadiumPlatform {
   }
 
   @override
-  Future<Publication> openPublication(String pubUrl) async {
-    // NOTE: For web, loadPublication and openPublication does the same thing,
-    //
-    // If calling the openPublication method outside of ReadiumWebView it will throw an error right away if there is no div with the id 'container'
-    // additionally the openPublication method does currently not return a publication object
-    R2Log.d(
-        'Cannot call openPublication outside of ReadiumWebView on web. Using getPublication instead to fetch the publication data.');
-    final publication = await loadPublication(pubUrl);
-    return publication;
-  }
-
-  @override
   Future<void> closePublication() async {
     JsPublicationChannel().closePublication();
     return;
   }
 
   @override
-  Future<String?> getLinkContent(Link link) {
-    return getString(link);
-  }
-
-  static Future<String> getString(final Link link) async {
-    // Get HTML string for full chapters, for example
+  Future<String?> getLinkContent(Link link) async {
     final linkString = json.encode(link);
-    final resourceString = await JsPublicationChannel().getResource(linkString);
-    return resourceString;
-  }
-
-  static Future<Uint8List> getBytes(final Link link) async {
-    // TODO: Is this still needed for audio books with the new implementation
-    final linkString = json.encode(link);
-    final resourceBytesString = await JsPublicationChannel().getResource(linkString, asBytes: true);
-    final byteList = jsonDecode(resourceBytesString).cast<int>();
-    return Uint8List.fromList(byteList);
+    final linkContent = await JsPublicationChannel().getLinkContent(linkString);
+    return linkContent;
   }
 
   @override

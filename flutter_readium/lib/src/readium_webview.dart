@@ -71,12 +71,11 @@ class ReadiumWebViewState extends State<ReadiumWebView> {
         throw Exception('Publication URL not found in publication links');
       }
 
-      final pubId = widget.publication.identifier;
       final preferences = _defaultPreferences?.toJson() ?? <String, dynamic>{};
       final currentLocatorString = widget.currentLocator != null ? json.encode(widget.currentLocator) : null;
       registerJSExports();
-      await JsPublicationChannel().openPublication(publicationUrl,
-          pubId: pubId, initialPreferences: json.encode(preferences), initialPositionJson: currentLocatorString);
+      await JsPublicationChannel().initializeNavigator(publicationUrl,
+          initialPreferences: json.encode(preferences), initialPositionJson: currentLocatorString);
     } catch (e) {
       // This is a temporary solution to show an error message when opening a publication fails
       // Do we need to have the app send what message it wants to show and make a dialog here? or continue to display it in the html view?

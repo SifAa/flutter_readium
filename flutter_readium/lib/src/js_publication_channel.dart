@@ -5,14 +5,15 @@ import 'package:flutter_readium_platform_interface/flutter_readium_platform_inte
 @JS('ReadiumReader')
 extension type ReadiumReader._(JSObject _) implements JSObject {
   external ReadiumReader();
-  external JSPromise openPublication(
-      JSString publicationURL, JSString pubId, JSString? initialPositionJson, JSString preferencesJson);
-  external JSPromise getPublication(JSString link);
+  external JSPromise initializeNavigator(
+      JSString publicationURL, JSString? initialPositionJson, JSString preferencesJson);
+  external JSPromise<JSString> openPublication(JSString link);
+  external JSPromise<JSString> loadPublication(JSString link);
   external JSPromise goTo(JSString location);
   external void goLeft();
   external void goRight();
   external void closePublication();
-  external JSPromise getResource(JSString linkString, JSBoolean? asBytes);
+  external JSPromise<JSString> getLinkContent(JSString linkString, JSBoolean? asBytes);
   external void setEPUBPreferences(JSString newPreferencesString);
   external JSBoolean get isNavigatorReady;
 }
@@ -26,11 +27,11 @@ external set updateReaderStatus(JSFunction f);
 class JsPublicationChannel {
   static final ReadiumReader _readiumReader = ReadiumReader();
 
-  Future<void> openPublication(String publicationURL,
-      {required String pubId, required String initialPreferences, String? initialPositionJson}) async {
+  Future<void> initializeNavigator(String publicationURL,
+      {required String initialPreferences, String? initialPositionJson}) async {
     try {
       await _readiumReader
-          .openPublication(publicationURL.toJS, pubId.toJS, initialPositionJson?.toJS, initialPreferences.toJS)
+          .initializeNavigator(publicationURL.toJS, initialPositionJson?.toJS, initialPreferences.toJS)
           .toDart;
     } on Object catch (jsError, stackTrace) {
       String errorString = jsError.toString();
@@ -45,10 +46,30 @@ class JsPublicationChannel {
     }
   }
 
-  Future<String> getPublication(String link) async {
+  Future<String> openPublication(String link) async {
     try {
-      final publicationPromise = _readiumReader.getPublication(link.toJS);
-      final publicationString = await publicationPromise.toDart as String;
+      final publicationPromise = await _readiumReader.openPublication(link.toJS).toDart;
+      final publicationString = publicationPromise.toDart;
+
+      return publicationString;
+    } on Object catch (jsError, stackTrace) {
+      String errorString = jsError.toString();
+      int? statusCode = _extractStatusCode(errorString);
+      String nativeCode = _convertToNativeCode(statusCode);
+
+      throw PlatformException(
+        code: nativeCode,
+        message: errorString,
+        details: statusCode,
+        stacktrace: stackTrace.toString(),
+      );
+    }
+  }
+
+  Future<String> loadPublication(String link) async {
+    try {
+      final publicationPromise = await _readiumReader.loadPublication(link.toJS).toDart;
+      final publicationString = publicationPromise.toDart;
 
       return publicationString;
     } on Object catch (jsError, stackTrace) {
@@ -122,10 +143,10 @@ class JsPublicationChannel {
     _readiumReader.closePublication();
   }
 
-  Future<String> getResource(String link, {bool? asBytes}) async {
+  Future<String> getLinkContent(String link, {bool? asBytes}) async {
     try {
-      final resourceJS = _readiumReader.getResource(link.toJS, asBytes?.toJS);
-      var resourceString = await resourceJS.toDart as String;
+      final resourceJS = await _readiumReader.getLinkContent(link.toJS, asBytes?.toJS).toDart;
+      var resourceString = resourceJS.toDart;
       return resourceString;
     } on Object catch (jsError, stackTrace) {
       String errorString = jsError.toString();

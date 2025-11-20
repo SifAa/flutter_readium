@@ -5,7 +5,7 @@ import { Locator, Resource } from "@readium/shared";
 import { Link } from "@readium/shared";
 
 // Helpers and extensions
-import { fetchManifest, setPreferencesFromString } from "./helpers";
+import { createPublicationJson, setPreferencesFromString } from "./helpers";
 import { ReadiumReaderStatus } from "./enums";
 import { ReadiumPublication } from "./extensions/ReadiumPublication";
 import { initializeEpubNavigatorAndPeripherals } from "./Epub/epubNavigator";
@@ -23,24 +23,24 @@ class _ReadiumReader {
     return !!this._nav;
   }
 
-  private static _publications: Map<string, ReadiumPublication> = new Map<
-    string,
-    ReadiumPublication
-  >();
-
-  public async getPublication(publicationURL: string) {
+  public async loadPublication(publicationURL: string) {
     try {
-      const { manifest, fetcher } = await fetchManifest(publicationURL);
-      this._publication = new ReadiumPublication({ manifest, fetcher });
-
-      let pubId = this._publication.metadata.identifier ?? "unidentified";
-      _ReadiumReader._publications.set(pubId, this._publication);
-
-      let manifestJson = this._publication.manifest.serialize();
-
+      const { manifestJson } = await createPublicationJson(publicationURL);
       return JSON.stringify(manifestJson);
     } catch (error) {
-      throw new Error("Error getting publication: " + error);
+      throw new Error("Error loading publication: " + error);
+    }
+  }
+
+  public async openPublication(publicationURL: string) {
+    try {
+      const { publication, manifestJson } = await createPublicationJson(
+        publicationURL
+      );
+      this._publication = publication;
+      return JSON.stringify(manifestJson);
+    } catch (error) {
+      throw new Error("Error setting publication: " + error);
     }
   }
 
@@ -59,10 +59,9 @@ class _ReadiumReader {
       let linksString = publicationLinks?.items
         .map((link) => link.href)
         .join(", ");
-      console.error(
+      let error = new Error(
         "Link not found " + href + ". Available links: " + linksString
       );
-      let error = new Error("Link not found " + href);
       throw error;
     }
     this._nav?.goLink(link, true, (ok) => {
@@ -73,9 +72,8 @@ class _ReadiumReader {
     });
   }
 
-  public async openPublication(
+  public async initializeNavigator(
     publicationURL: string,
-    pubId: string,
     initialPositionJson: string | undefined,
     preferencesJson: string | undefined
   ) {
@@ -84,8 +82,7 @@ class _ReadiumReader {
       document.body.querySelector("#container");
 
     if (!container) {
-      console.error("Container element not found");
-      (window as any).updateReaderStatus?.("error");
+      this.closePublication("Container element not found");
       throw new Error("Container element not found");
     }
 
@@ -99,14 +96,11 @@ class _ReadiumReader {
       !preferencesJson || preferencesJson === "null" ? "{}" : preferencesJson;
 
     try {
-      // TODO: match native
-      this._publication = _ReadiumReader._publications.get(pubId);
       if (!this._publication) {
-        const { manifest, fetcher } = await fetchManifest(publicationURL);
-        this._publication = new ReadiumPublication({ manifest, fetcher });
-        _ReadiumReader._publications.set(pubId, this._publication);
+        console.log("Fetching publication for navigator initialization");
+        const { publication } = await createPublicationJson(publicationURL);
+        this._publication = publication;
       }
-      let conformsToArray = this._publication.manifest.metadata.conformsTo;
 
       if (this._publication.conformsToAudiobook) {
         // Initialize WebAudioEngine for audiobooks
@@ -153,6 +147,7 @@ class _ReadiumReader {
   public closePublication(error?: any) {
     this._publication = undefined;
     this._nav?.destroy(); // Clean up the navigator instance
+    this._nav = undefined;
     const container = document.getElementById("container");
     if (container) {
       container.innerHTML = ""; // Clear the container
@@ -167,31 +162,27 @@ class _ReadiumReader {
     delete (window as any).updateReaderStatus;
   }
 
-  public async getResource(linkString: String, asBytes: boolean = false) {
-    // Step one - linkString to json object
+  public async getLinkContent(linkString: String, asBytes: boolean = false) {
     let linkJson = JSON.parse(linkString.toString());
-    // Step two - json to Link object
     let link: Link | undefined = Link.deserialize(linkJson);
     if (!link) {
       console.error("Invalid link string");
     }
-    // Step three - fetch the resource link
     let resourceLink: Resource | undefined = this._publication?.get(link!);
 
     if (!resourceLink) {
       console.error("Resource not found", link);
     }
 
-    // Step four - get resource as string
-    let resourceString: string | undefined;
+    let linkContent: string | undefined;
     if (asBytes) {
       let resourceBytes = await resourceLink?.read();
-      resourceString = JSON.stringify(Array.from(resourceBytes!));
+      linkContent = JSON.stringify(Array.from(resourceBytes!));
     } else {
-      resourceString = await resourceLink?.readAsString();
+      linkContent = await resourceLink?.readAsString();
     }
 
-    return resourceString;
+    return linkContent;
   }
 }
 
