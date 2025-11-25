@@ -77,7 +77,7 @@ class _ReadiumReader {
     initialPositionJson: string | undefined,
     preferencesJson: string | undefined
   ) {
-    (window as any).updateReaderStatus?.(ReadiumReaderStatus.loading);
+    window.updateReaderStatus?.(ReadiumReaderStatus.loading);
     const container: HTMLElement | null =
       document.body.querySelector("#container");
 
@@ -115,7 +115,7 @@ class _ReadiumReader {
             preferencesJsonString,
             (nav) => {
               this._nav = nav;
-              (window as any).updateReaderStatus?.(ReadiumReaderStatus.ready);
+              window.updateReaderStatus?.(ReadiumReaderStatus.ready);
             }
           );
         } else {
@@ -126,7 +126,7 @@ class _ReadiumReader {
             preferencesJsonString,
             (nav) => {
               this._nav = nav;
-              (window as any).updateReaderStatus?.(ReadiumReaderStatus.ready);
+              window.updateReaderStatus?.(ReadiumReaderStatus.ready);
             }
           );
         }
@@ -153,13 +153,13 @@ class _ReadiumReader {
       container.innerHTML = ""; // Clear the container
     }
     if (error) {
-      (window as any).updateReaderStatus?.(ReadiumReaderStatus.error);
+      window.updateReaderStatus?.(ReadiumReaderStatus.error);
     } else {
-      (window as any).updateReaderStatus?.(ReadiumReaderStatus.closed);
+      window.updateReaderStatus?.(ReadiumReaderStatus.closed);
     }
 
-    delete (window as any).updateTextLocator;
-    delete (window as any).updateReaderStatus;
+    delete window.updateTextLocator;
+    delete window.updateReaderStatus;
   }
 
   public async getLinkContent(linkString: String, asBytes: boolean = false) {

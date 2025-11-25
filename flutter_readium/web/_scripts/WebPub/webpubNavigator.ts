@@ -87,7 +87,7 @@ export async function initializeWebPubNavigatorAndPeripherals(
     positionChanged: (_locator: Locator): void => {
       window.focus();
 
-      (window as any).updateTextLocator?.(JSON.stringify(_locator));
+      window.updateTextLocator?.(JSON.stringify(_locator));
     },
     tap: function (_e: FrameClickEvent): boolean {
       console.log("tap event received in WebPubNavigator");
