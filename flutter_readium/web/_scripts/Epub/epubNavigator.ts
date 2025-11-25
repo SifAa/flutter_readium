@@ -91,8 +91,8 @@ export async function initializeEpubNavigatorAndPeripherals(
   });
 
   const listeners: EpubNavigatorListeners = {
-    scroll: function (_amount: number): void {},
-    frameLoaded: function (_wnd: Window): void {
+    scroll(_amount: number): void {},
+    frameLoaded(_wnd: Window): void {
       nav._cframes.forEach(
         (frameManager: FrameManager | FXLFrameManager | undefined) => {
           if (frameManager) {
@@ -102,23 +102,23 @@ export async function initializeEpubNavigatorAndPeripherals(
       );
       p.observe(window);
     },
-    positionChanged: (_locator: Locator): void => {
+    positionChanged(_locator: Locator): void {
       window.focus();
 
       window.updateTextLocator?.(JSON.stringify(_locator));
     },
-    tap: function (_e: FrameClickEvent): boolean {
+    tap(_e: FrameClickEvent): boolean {
       return false;
     },
-    click: function (_e: FrameClickEvent): boolean {
+    click(_e: FrameClickEvent): boolean {
       return false;
     },
-    zoom: function (_scale: number): void {},
-    miscPointer: function (_amount: number): void {
+    zoom(_scale: number): void {},
+    miscPointer(_amount: number): void {
       // fires when a tap or a click was made in the middle of the iframe e.g. show/hide UI
     },
-    customEvent: function (_key: string, _data: unknown): void {},
-    handleLocator: function (locator: Locator): boolean {
+    customEvent(_key: string, _data: unknown): void {},
+    handleLocator(locator: Locator): boolean {
       const href = locator.href;
       if (
         href.startsWith("http://") ||
@@ -132,7 +132,7 @@ export async function initializeEpubNavigatorAndPeripherals(
       }
       return false;
     },
-    textSelected: function (_selection: BasicTextSelection): void {
+    textSelected(_selection: BasicTextSelection): void {
       highlightSelection(nav, publication, _selection);
     },
   };
