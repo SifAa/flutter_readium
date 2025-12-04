@@ -80,11 +80,16 @@ class ReaderWidget extends StatelessWidget {
             );
           }
           // Return a fallback widget in case none of the conditions above are met
-          return const ColoredBox(
-            color: Color(0xffffff00),
-            child: Center(
-              child: Text('Something went wrong.'),
-            ),
+          return BlocBuilder<TextSettingsBloc, TextSettingsState>(
+            builder: (context, settings) {
+              return Container(
+                  color: settings.theme.backgroundColor,
+                  child: state.readerStatus == ReadiumReaderStatus.closed
+                      ? SizedBox.shrink()
+                      : Center(
+                          child: Text('Something went wrong'),
+                        ));
+            },
           );
         },
       );
