@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_readium/flutter_readium.dart';
@@ -19,44 +20,56 @@ class _PlayerPageState extends State<PlayerPage> with RestorationMixin {
   @override
   Widget build(final BuildContext context) => BlocBuilder<PublicationBloc, PublicationState>(
         builder: (final context, final pubState) {
-          final isAudioBook = pubState.publication?.conformsToReadiumAudiobook ?? false;
-          final hasMediaOverlays = pubState.publication?.containsMediaOverlays == true;
-          return PopScope(
-            canPop: true,
-            onPopInvokedWithResult: (didPop, result) {
-              // When Player page is popped, make sure to close current publication.
-              context.read<PlayerControlsBloc>().add(Stop());
-              // Put some delay to ensure that the closePublication is called after navigating back visually.
-              Duration delay = const Duration(milliseconds: 450);
-              Future.delayed(delay, () {
-                context.read<PublicationBloc>().add(ClosePublication());
-              });
-            },
-            child: Scaffold(
-              restorationId: 'player_page',
-              appBar: AppBar(
-                backgroundColor: Colors.amber,
-                title: Semantics(
-                  header: true,
-                  child: Text(
-                    pubState.error != null ? 'Error' : pubState.publication?.metadata.title.values.first ?? 'Unknown',
-                  ),
+          final isAudioBook = (pubState.publication?.conformsToReadiumAudiobook ?? false) && !kIsWeb;
+          final hasMediaOverlays = pubState.publication?.containsMediaOverlays == true && !kIsWeb;
+          return Scaffold(
+            restorationId: 'player_page',
+            appBar: AppBar(
+              leading: BackButton(
+                onPressed: () async {
+                  context.read<PlayerControlsBloc>().add(Stop());
+                  context.read<PublicationBloc>().add(ClosePublication());
+                  if (pubState.readerStatus != ReadiumReaderStatus.ready) {
+                    // To be able to navigate back when there was e.g. an error opening the pub
+                    if (context.mounted) {
+                      Navigator.of(context).maybePop();
+                    }
+                  } else {
+                    // This is important for web to ensure that closed is complete before disposing the widget
+                    await for (final status in FlutterReadium().onReaderStatusChanged) {
+                      if (status == ReadiumReaderStatus.closed) {
+                        if (context.mounted) {
+                          Navigator.of(context).maybePop();
+                        }
+                        break;
+                      }
+                    }
+                  }
+                },
+              ),
+              backgroundColor: Colors.amber,
+              title: Semantics(
+                header: true,
+                child: Text(
+                  pubState.error != null ? 'Error' : pubState.publication?.metadata.title.values.first ?? 'Unknown',
                 ),
-                actions: _buildActionButtons(),
               ),
-              body: Column(
-                children: [
-                  Expanded(
-                    child: isAudioBook
-                        ? Container(
-                            padding: EdgeInsets.all(12.0),
-                            child: TimebasedStateWidget(),
-                          )
-                        : ReaderWidget(),
-                  ),
-                  _controls(isAudioBook || hasMediaOverlays),
-                ],
-              ),
+              actions: _buildActionButtons(),
+            ),
+            body: Column(
+              children: [
+                Expanded(
+                  child: isAudioBook
+                      ? Container(
+                          padding: EdgeInsets.all(12.0),
+                          child: TimebasedStateWidget(),
+                        )
+                      : (pubState.readerStatus == ReadiumReaderStatus.closed
+                          ? const SizedBox.shrink()
+                          : ReaderWidget()),
+                ),
+                _controls(isAudioBook || hasMediaOverlays),
+              ],
             ),
           );
         },

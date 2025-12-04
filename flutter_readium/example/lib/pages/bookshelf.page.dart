@@ -50,7 +50,6 @@ class BookshelfPageState extends State<BookshelfPage> {
           if (pub != null) {
             loadedPublications.add(pub);
             loadedPublicationURLs.add(localPubPath);
-            await _flutterReadiumPlugin.closePublication();
           }
         } on Exception catch (e) {
           debugPrint('Error opening publication: $e');

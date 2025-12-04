@@ -38,9 +38,6 @@ class _ReadiumReaderWidgetState extends State<ReadiumReaderWidget> implements Re
   void dispose() {
     R2Log.d('Widget disposed');
     super.dispose();
-
-    // Close the publication when the widget is disposed
-    FlutterReadium().closePublication();
   }
 
   @override

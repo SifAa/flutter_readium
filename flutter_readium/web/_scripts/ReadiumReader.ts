@@ -145,21 +145,31 @@ class _ReadiumReader {
   }
 
   public closePublication(error?: any) {
-    this._publication = undefined;
-    this._nav?.destroy(); // Clean up the navigator instance
-    this._nav = undefined;
-    const container = document.getElementById("container");
-    if (container) {
-      container.innerHTML = ""; // Clear the container
-    }
-    if (error) {
-      window.updateReaderStatus?.(ReadiumReaderStatus.error);
-    } else {
-      window.updateReaderStatus?.(ReadiumReaderStatus.closed);
-    }
+    this._nav
+      ?.destroy()
+      .then(() => {
+        this._nav = undefined;
+        this._publication = undefined;
+        if (error) {
+          window.updateReaderStatus?.(ReadiumReaderStatus.error);
+        } else {
+          window.updateReaderStatus?.(ReadiumReaderStatus.closed);
+        }
 
-    delete window.updateTextLocator;
-    delete window.updateReaderStatus;
+        const container = document.getElementById("container");
+        if (container) {
+          container.innerHTML = "";
+        }
+        delete window.updateTextLocator;
+        delete window.updateReaderStatus;
+        console.log("Publication closed");
+      })
+      .catch((err) => {
+        window.updateReaderStatus?.(ReadiumReaderStatus.error);
+        throw new Error(
+          `Failed to destroy navigator instance for ${this._nav?.publication.metadata.title.getTranslation()}. Reason: ${err}`
+        );
+      });
   }
 
   public async getLinkContent(linkString: String, asBytes: boolean = false) {

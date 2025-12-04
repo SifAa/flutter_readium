@@ -140,7 +140,11 @@ class JsPublicationChannel {
   }
 
   void closePublication() {
-    _readiumReader.closePublication();
+    try {
+      _readiumReader.closePublication();
+    } catch (error) {
+      R2Log.e(error);
+    }
   }
 
   Future<String> getLinkContent(String link, {bool? asBytes}) async {
